@@ -1,0 +1,66 @@
+---
+layout: post
+title:  "\"/dev/shm/nginx_temp/client_body/0000000001\" failed (28: No space left on device)"
+date:   2019-09-01 15:17:00 +08
+categories: ops nginx 
+---
+
+周六值班,下午4点左右,用户开门见山:"我这边有一个业务上传的功能,部署在你们平台上(基于k8s/docker的pass平台),上传文件报错.上传大小有限制吗?默认限制是多少?可以自己设置吗?".面对用户三连击,我的内心是崩溃的......"兄弟,有日志吗?".然后等了大约30分钟,用户把日志发给了我.用户说:"nginx的默认/dev/shm文件夹大小64m,应该是这个限制了上传文件的大小",基本指出了问题之所在.我的内心还是崩溃的....你们不能google吗?正好我也不知道为什么,有了日志,那就查一下吧.
+
+#### 报错
+
+```
+2019/08/31 16:30:29 [crit] 260#0: *74 pwrite() "/dev/shm/nginx_temp/client_body/0000000001" failed (28: No space left on device), client: x.x.x.x, server: , request: "POST /yyyy/zzzz HTTP/1.1", host: "x.x.x.x", referrer: "http://x.x.x.x/yyyy/zzzz"
+```
+
+#### 排查
+
+- 什么是/dev/shm
+
+> 据网上资料,/dev/shm/是linux下一个非常有用的目录,因为这个目录不在硬盘上,而是在内存里.因此在linux下,就不需要大费周折去建ramdisk,直接使用/dev/shm/就可达到很好的优化效果./dev/shm/需要注意的一个是容量问题,在linux下,它默认最大为内存的一半大小,使用df -h命令可以看到.但它并不会真正的占用这块内存,如果/dev/shm/下没有任何文件,它占用的内存实际上就是0字节...同时还查到,Linux系统中/dev/shm其实直接指向了物理内存,一般是物理内存的一半大小,但是在docker容器中默认是64m,很多软件无法正常工作.
+
+让我们来分析下这段话啥意思.有些软件比如nginx,会将一些数据文件临时存放在`/dev/shm`里,以提高性能.因为`docker`默认是64m,当用户上传的文件(`http post body`)大于64m,就会出现`failed (28: No space left on device)`.
+
+```
+# df -h
+                       30G   87M   28G   1% /export
+shm                    64M     0   64M   0% /dev/shm
+......
+```
+
+
+如何把上面的信息转化知识和解决方案呢?想起来一次面试经历,面试官上来就问nginx调优用过哪些配置项,没怎么用过nginx,理所当然的挂了.包括现在,虽然手头有一本<<深入理解nginx模块开发和架构解析>>,也翻看了一遍,但是没有在工作中深入使用过.对于经验丰富的兄弟,问题应该已经解决了.但是问题万变不离其宗.
+继续分析,`/dev/shm`过小,或许修改其大小可以解决,这个方案pass.换个思路,`nginx`为什么把文件临时写在这里,修改临时文件目录,写到`/export`下,问题不就解决了吗.继续查找资料,发现参数`client_body_temp_path`.
+
+- client_body_temp_path
+
+><<深入理解nginx模块开发和架构解析>>工具书上有这么一段,章节是`2.4.3 内存及磁盘资源的分配`,其中有个参数是 `client_body_temp_path`,定义了HTTP包体存放的临时目录.在接收HTTP包体的时,如果包体的大小大于`client_body_buffer_size`,则会以一个定增的整数名并存放在`client_body_temp_path`指定的目录中.
+
+#### 解决
+
+让用户自定义该参数 **client_body_temp_path**.问题解决.
+```
+location / {
+
+	client_body_temp_path <自定义目录>;
+
+}
+```
+
+同时用户的三连击还没有回答,但是排查中深入到容器,找到`nginx.conf`,也找到了上面问题的答案:上传的大小是有限制的.限制为300m.可以自定义配置client_max_body_size覆盖缺省配置.
+
+```
+client_body_in_file_only        off    #默认off
+client_body_buffer_size         512k;
+client_max_body_size            300m;  #限制了包体的最大值	
+```
+
+#### 总结
+
+`client_body_in_file_only`缺省是`off`,如果是非`off`,即`on|clean`,用户请求的的http包体一律存储到磁盘文件中.如果是`on`,请求结束也不会删除,常用于调试.此时我们使用的是`off`,表示包体会先写到内存缓冲区.`client_body_buffer_size`,设置值为`512K`,定义了接收HTTP包体的内存缓冲区大小,包体会先写入内存,之后决定是否写入磁盘.如果包体过大,则会直接存入`client_body_temp_path`定义存放临时文件的磁盘目录.
+
+---
+帮助别人,也是充实自己
+
+
+
