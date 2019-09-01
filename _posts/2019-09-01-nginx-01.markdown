@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "/dev/shm/nginx_temp/client_body/0000000001 failed (28: No space left on device)"
+title:  "解决gninx上传大文件失败的问题"
 date:   2019-09-01 15:17:00 +08
 categories: ops nginx 
 ---
