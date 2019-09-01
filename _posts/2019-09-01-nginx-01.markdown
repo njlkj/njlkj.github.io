@@ -21,8 +21,8 @@ categories: ops nginx
 
 ```
 # df -h
-                       30G   87M   28G   1% /export
-shm                    64M     0   64M   0% /dev/shm
+     30G   87M   28G   1% /export
+shm  64M     0   64M   0% /dev/shm
 ......
 ```
 
@@ -40,7 +40,7 @@ shm                    64M     0   64M   0% /dev/shm
 ```
 location / {
 
-	client_body_temp_path <自定义目录>;
+  client_body_temp_path <自定义目录>;
 
 }
 ```
@@ -48,9 +48,9 @@ location / {
 同时用户的三连击还没有回答,但是排查中深入到容器,找到`nginx.conf`,也找到了上面问题的答案:上传的大小是有限制的.限制为300m.可以自定义配置client_max_body_size覆盖缺省配置.
 
 ```
-client_body_in_file_only        off    #默认off
-client_body_buffer_size         512k;
-client_max_body_size            300m;  #限制了包体的最大值	
+client_body_in_file_only  off #默认off
+client_body_buffer_size   512k;
+client_max_body_size      300m; #限制了包体的最大值	
 ```
 
 #### 总结
