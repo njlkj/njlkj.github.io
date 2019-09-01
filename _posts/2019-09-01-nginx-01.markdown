@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "\"/dev/shm/nginx_temp/client_body/0000000001\" failed (28: No space left on device)"
+title:  "/dev/shm/nginx_temp/client_body/0000000001 failed (28: No space left on device)"
 date:   2019-09-01 15:17:00 +08
 categories: ops nginx 
 ---
@@ -9,9 +9,7 @@ categories: ops nginx
 
 #### 报错
 
-```
-2019/08/31 16:30:29 [crit] 260#0: *74 pwrite() "/dev/shm/nginx_temp/client_body/0000000001" failed (28: No space left on device), client: x.x.x.x, server: , request: "POST /yyyy/zzzz HTTP/1.1", host: "x.x.x.x", referrer: "http://x.x.x.x/yyyy/zzzz"
-```
+>2019/08/31 16:30:29 [crit] 260#0: *74 pwrite() "/dev/shm/nginx_temp/client_body/0000000001" failed (28: No space left on device), client: x.x.x.x, server: , request: "POST /yyyy/zzzz HTTP/1.1", host: "x.x.x.x", referrer: "http://x.x.x.x/yyyy/zzzz"
 
 #### 排查
 
