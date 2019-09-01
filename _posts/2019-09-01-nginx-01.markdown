@@ -26,9 +26,18 @@ shm  64M     0   64M   0% /dev/shm
 ......
 ```
 
+nginx为什么把`client body`放在这个目录,执行`nginx -V`,原来是为了提高性能,编译时候放入的.那么修改`--http-client-body-temp-path`问题应该就可以解决.
 
-如何把上面的信息转化知识和解决方案呢?想起来一次面试经历,面试官上来就问nginx调优用过哪些配置项,没怎么用过nginx,理所当然的挂了.包括现在,虽然手头有一本<<深入理解nginx模块开发和架构解析>>,也翻看了一遍,但是没有在工作中深入使用过.对于经验丰富的兄弟,问题应该已经解决了.但是问题万变不离其宗.
-继续分析,`/dev/shm`过小,或许修改其大小可以解决,这个方案pass.换个思路,`nginx`为什么把文件临时写在这里,修改临时文件目录,写到`/export`下,问题不就解决了吗.继续查找资料,发现参数`client_body_temp_path`.
+```
+# nginx -V
+
+nginx version: openresty/1.9.7.3
+built by gcc 4.4.7 20120313 (Red Hat 4.4.7-11) (GCC) 
+built with OpenSSL 1.0.1e-fips 11 Feb 2013
+TLS SNI support enabled
+configure arguments: --prefix=/export/servers/nginx --sbin-path=/export/servers/nginx/sbin/nginx --conf-path=/export/servers/nginx/conf/nginx.conf --with-ld-opt=-Wl,-rpath,/usr/local/lib --error-log-path=/export/servers/nginx/logs/error.log --http-log-path=/export/servers/nginx/logs/access.log --pid-path=/export/servers/nginx/var/nginx.pid --lock-path=/export/servers/nginx/var/nginx.lock --http-client-body-temp-path=/dev/shm/nginx_temp/client_body --http-proxy-temp-path=/dev/shm/nginx_temp/proxy --http-fastcgi-temp-path=/dev/shm/nginx_temp/fastcgi --user=admin --group=admin --with-cpu-opt=pentium4F --without-select_module --without-poll_module --with-http_realip_module --with-http_sub_module --with-http_gzip_static_module --with-http_stub_status_module --with-http_ssl_module --without-http_userid_module --without-http_geo_module --without-http_map_module --without-mail_pop3_module --without-mail_imap_module --without-mail_smtp_module --add-module=/usr/local/src/ngx-tomcat/ngx_devel_kit-0.3.0 --add-module=/usr/local/src/ngx-tomcat/lua-nginx-module-0.10.0
+
+```
 
 - client_body_temp_path
 
@@ -36,7 +45,7 @@ shm  64M     0   64M   0% /dev/shm
 
 #### 解决
 
-让用户自定义该参数 **client_body_temp_path**.问题解决.
+让用户自定义该参数 **client_body_temp_path**.
 ```
 location / {
 
