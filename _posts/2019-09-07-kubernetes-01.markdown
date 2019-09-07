@@ -11,7 +11,7 @@ categories: kuberetes
 ## 1.绝对资源限定 
 
 - 跑一个耗cpu的脚本
-	```
+	```shell
 	x=0
 	while [ True ];do
 		x=$x+1
@@ -19,31 +19,33 @@ categories: kuberetes
 	```
 
 - top可以查看cpu使用率
-	```                     
+	```shell  
+    $top	
 	28536 root      20   0  114756   4488   2812 R  99.8  0.1   1:53.98 sh                                     
 	```
 
 - 创建一个控制组
-	```
+	```shell
 	$mkdir -p /sys/fs/cgroup/cpu/test
 	$echo 50000 > /sys/fs/cgroup/cpu/test/cpu.cfs_quota_us
 	$echo 28536 > /sys/fs/cgroup/cpu/test/tasks
 	```
 
 - top再次查看cpu使用率
-	```                            
+	```shell
+    $top	
 	28536 root      20   0  114756   4488   2812 R  49.8  0.1   1:53.98 sh                                    
 	```
 
 - cpu.stat
-	```
+	```shell
 	$cat /sys/fs/cgroup/cpu/test/cpu.stat 
 	nr_periods 106            # 经历了106个周期(cpu.cfs_period_us缺省为100ms)
 	nr_throttled 101          # 其中101个周期受限制
 	throttled_time 4258985099 # 总共受限的cpu时间(纳秒)即约4.2s
 	```
 - cpuacct.stat
-	```
+	```shell
 	$getconf CLK_TCK
 	100
 	$cat /sys/fs/cgroup/cpu/test/cpuacct.stat
@@ -51,7 +53,7 @@ categories: kuberetes
 	system 4  # 内核态使用的时长为0.04s
 	```
 - cpuacct.usage
-	```
+	```shell
 	$cat /sys/fs/cgroup/cpu/test/cpuacct.usage
 	5058536787 #单位为纳秒,控制组中进程消耗的时间
 	```
@@ -70,7 +72,7 @@ categories: kuberetes
 ### 子系统(subsystem)
 
 - 查看系统支持的子系统 
-	```
+	```shell
     $cat /proc/cgroup
     #subsys_name    hierarchy       num_cgroups     enabled
     cpuset  10      131     1
@@ -100,7 +102,7 @@ categories: kuberetes
 
 - 控制组(controller group)
 	>查看进程的cgroup 
-	```
+	```shell
 	$ cat /proc/28791/cgroup 
 	11:freezer:/ 
 	10:memory:/user.slice
@@ -117,7 +119,7 @@ categories: kuberetes
 
 - 任务(tasks) 
 	>子系统在该层级中关联到任务的个数
-	```
+	```shell
 	$ cat /sys/fs/cgroup/cpu/tast|wc -l
 	```
 
@@ -125,7 +127,7 @@ categories: kuberetes
 **假设存在一个2c2g的pod,看系统是如何实现资源控制的**
 
 - 查看node可分配资源情况
-	```
+	```txt
 	Capacity:
 	 cpu:           32
 	 memory:        528071116Ki
@@ -141,7 +143,7 @@ categories: kuberetes
 	
 
 - 查看目标pod资源限定参数
-	```
+	```txt
 	Limits:
 	  cpu:      2
 	  memory:   2Gi
@@ -152,7 +154,7 @@ categories: kuberetes
 	*发现其request.cpu=800m(m:千分之一核),limit.cpu=2,k8s中request.cpu的值会映射到cgroup中cpu.shares,limit.cpu映射到cpu.cfs_quota_us,其中cpu.cfs_period_us缺省设置为100ms;这种映射关系是通过docker的相关参数实现的*
 
 - 查看docker容器资源限定参数
-	```
+	```txt
 	"CpuShares": 819,
 	"CpuPeriod": 100000,
 	"CpuQuota": 200000, 
@@ -161,9 +163,9 @@ categories: kuberetes
 	*CpuShares=819是通过0.8x1024计算出来的;CpuPeriod缺省值为100ms,CpuQuota为200ms,表示可以使用2c的cpu资源*
 
 - 查看cgroup资源限定参数
-	```
+	```shell
 	#根据容器ID查询容器进程PID
-	$docker inspect  --format '{{ .State.Pid }}' c30efb46bd87
+	$docker inspect  --format '{{.State.Pid}}' c30efb46bd87
 	346019
 
 	#根据pid查看cgroup配置
@@ -174,7 +176,7 @@ categories: kuberetes
 	$cd /sys/fs/cgroup/cpu/kubepods/burstable/podad31742b-cd93-11e9-9679-58f987da0bb0/c30efb46bd87237b8cc6a927ab6f7b526f6450247ac62f3863c25bdafc10632b
 
 	# 查看cgroup资源限定参数
-	cat tasks |grep 346019
+	$cat tasks |grep 346019
 	346019
 	$cat cpu.cfs_quota_us
 	200000
