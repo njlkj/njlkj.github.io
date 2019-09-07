@@ -69,9 +69,8 @@ categories: kuberetes
 
 ## 3.概念
 
-### 子系统(subsystem)
-
-- 查看系统支持的子系统 
+- 子系统(subsystem)
+	>查看系统支持的子系统 
 	```shell
     $cat /proc/cgroup
     #subsys_name    hierarchy       num_cgroups     enabled
@@ -165,7 +164,7 @@ categories: kuberetes
 - 查看cgroup资源限定参数
 	```shell
 	#根据容器ID查询容器进程PID
-	$docker inspect  --format '{{ \.State\.Pid }}' c30efb46bd87
+	$docker inspect  --format '\{\{ .State.Pid \}\}' c30efb46bd87
 	346019
 
 	#根据pid查看cgroup配置
