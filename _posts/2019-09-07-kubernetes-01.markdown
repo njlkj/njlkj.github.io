@@ -6,237 +6,186 @@ categories: kuberetes
 ---
 探究下k8s是如何实现对cpu的资源限定.先了解cgroup.
 
-# 1. 查看cgroup 挂载点
+# 一.cgroup
 
-```
-#mount |grep cgroup
-tmpfs on /sys/fs/cgroup type tmpfs (ro,nosuid,nodev,noexec,mode=755)
-cgroup on /sys/fs/cgroup/systemd type cgroup (rw,nosuid,nodev,noexec,relatime,xattr,release_agent=/usr/lib/systemd/systemd-cgroups-agent,name=systemd)
-cgroup on /sys/fs/cgroup/hugetlb type cgroup (rw,nosuid,nodev,noexec,relatime,hugetlb)
-cgroup on /sys/fs/cgroup/cpu,cpuacct type cgroup (rw,nosuid,nodev,noexec,relatime,cpu,cpuacct)
-cgroup on /sys/fs/cgroup/pids type cgroup (rw,nosuid,nodev,noexec,relatime,pids)
-cgroup on /sys/fs/cgroup/perf_event type cgroup (rw,nosuid,nodev,noexec,relatime,perf_event)
-cgroup on /sys/fs/cgroup/cpuset type cgroup (rw,nosuid,nodev,noexec,relatime,cpuset)
-cgroup on /sys/fs/cgroup/blkio type cgroup (rw,nosuid,nodev,noexec,relatime,blkio)
-cgroup on /sys/fs/cgroup/net_cls,net_prio type cgroup (rw,nosuid,nodev,noexec,relatime,net_cls,net_prio)
-cgroup on /sys/fs/cgroup/devices type cgroup (rw,nosuid,nodev,noexec,relatime,devices)
-cgroup on /sys/fs/cgroup/memory type cgroup (rw,nosuid,nodev,noexec,relatime,memory)
-cgroup on /sys/fs/cgroup/freezer type cgroup (rw,nosuid,nodev,noexec,relatime,freezer)
-```
+## 1.绝对资源限定 
 
-## 1.1 cpu/cpuacct
+- 跑一个耗cpu的脚本
+	```
+	x=0
+	while [ True ];do
+		x=$x+1
+	done;
+	```
 
-### 1.1.1 绝对的限制cpu使用资源 cpu.cfs_quota_us/cpu.cfs_period_us
+- top可以查看cpu使用率
+	```                     
+	28536 root      20   0  114756   4488   2812 R  99.8  0.1   1:53.98 sh                                     
+	```
 
-1. 跑一个耗cpu的脚本
+- 创建一个控制组
+	```
+	$mkdir -p /sys/fs/cgroup/cpu/test
+	$echo 50000 > /sys/fs/cgroup/cpu/test/cpu.cfs_quota_us
+	$echo 28536 > /sys/fs/cgroup/cpu/test/tasks
+	```
 
-```
-x=0
-while [ True ];do
-	x=$x+1
-done;
-```
+- top再次查看cpu使用率
+	```                            
+	28536 root      20   0  114756   4488   2812 R  49.8  0.1   1:53.98 sh                                    
+	```
 
-2. top可以查看cpu使用率99.8%,注意pid为28536
+- cpu.stat
+	```
+	$cat /sys/fs/cgroup/cpu/test/cpu.stat 
+	nr_periods 106            # 经历了106个周期(cpu.cfs_period_us缺省为100ms)
+	nr_throttled 101          # 其中101个周期受限制
+	throttled_time 4258985099 # 总共受限的cpu时间(纳秒)即约4.2s
+	```
+- cpuacct.stat
+	```
+	$getconf CLK_TCK
+	100
+	$cat /sys/fs/cgroup/cpu/test/cpuacct.stat
+	user 543  # 单位是 USER_HZ,也就是 jiffies、cpu 滴答数,除以CLK_TCK可以算出用户态使用的时长为5.43s
+	system 4  # 内核态使用的时长为0.04s
+	```
+- cpuacct.usage
+	```
+	$cat /sys/fs/cgroup/cpu/test/cpuacct.usage
+	5058536787 #单位为纳秒,控制组中进程消耗的时间
+	```
 
-```                     
-28536 root      20   0  114756   4488   2812 R  99.8  0.1   1:53.98 sh                                     
-```
+## 2.相对资源限定
 
-3. 创建一个控制组控制这个进程的cpu资源
+- cpu.shares
+	>shares用来设置CPU的相对值,并且是针对所有的CPU（内核）,默认值是1024,假如系统中有两个cgroup,分别是A和B,A的shares值是1024,B的shares值是512,那么A将获得1024/(1204+512)=66%的CPU资源,而B将获得33%的CPU资源。
 
-```
-$mkdir -p /sys/fs/cgroup/cpu/test
-$echo 50000 > /sys/fs/cgroup/cpu/test/cpu.cfs_quota_us
-$echo 28536 > /sys/fs/cgroup/cpu/test/tasks
-
-$cat /sys/fs/cgroup/cpu/test/cpu.cfs_quota_us
-50000
-
-$cat /sys/fs/cgroup/cpu/test/cpu.cfs_period_us
-100000
-```
-
-4. top再次查看cpu使用率49.8%
-
-```                            
-28536 root      20   0  114756   4488   2812 R  49.8  0.1   1:53.98 sh                                    
-```
-
-5. cpu.stat
-
-```
-$cat /sys/fs/cgroup/cpu/test/cpu.stat 
-nr_periods 106            # 经历了106个周期(cpu.cfs_period_us缺省为100ms)
-nr_throttled 101          # 其中101个周期受限制
-throttled_time 4258985099 # 总共受限的cpu时间(纳秒)即约4.2s
-```
-
-6. cpuacct.stat
-
-```
-$getconf CLK_TCK
-100
-
-$cat /sys/fs/cgroup/cpu/test/cpuacct.stat
-user 543  # 单位是 USER_HZ,也就是 jiffies、cpu 滴答数,除以CLK_TCK可以算出用户态使用的时长为5.43s
-system 4  # 内核态使用的时长为0.04s
-```
-
-7. cpuacct.usage
-
-```
-$cat /sys/fs/cgroup/cpu/test/cpuacct.usage
-5058536787 #单位为纳秒,控制组中进程消耗的时间
-```
-
-### 1.1.2 相对的限制cpu使用资源 cpu.shares
-
-1. cpu.shares
->shares用来设置CPU的相对值,并且是针对所有的CPU（内核）,默认值是1024,假如系统中有两个cgroup,分别是A和B,A的shares值是1024,B的shares值是512,那么A将获得1024/(1204+512)=66%的CPU资源,而B将获得33%的CPU资源。
-
-2. shares有两个特点：
->如果A不忙,没有使用到66%的CPU时间,那么剩余的CPU时间将会被系统分配给B,即B的CPU使用率可以超过33%;如果添加了一个新的cgroup C,且它的shares值是1024,那么A的限额变成了1024/(1204+512+1024)=40%,B的变成了20%.
+- shares有两个特点：
+	>如果A不忙,没有使用到66%的CPU时间,那么剩余的CPU时间将会被系统分配给B,即B的CPU使用率可以超过33%;如果添加了一个新的cgroup C,且它的shares值是1024,那么A的限额变成了1024/(1204+512+1024)=40%,B的变成了20%.
 
 
-## 1.2 一些概念
->子系统(subsystem)/层级(hierarchy)/控制组(controller group)/任务(tasks) 
+## 3.概念
 
-### 1.2.1 查看系统支持哪些子系统
+### 子系统(subsystem)
 
-1. 查看子系统 
+- 查看系统支持的子系统 
+	```
+    $cat /proc/cgroup
+    #subsys_name    hierarchy       num_cgroups     enabled
+    cpuset  10      131     1
+    cpu     5       250     1
+    cpuacct 5       250     1
+    memory  3       250     1
+    devices 8       247     1
+    freezer 2       131     1
+    net_cls 7       131     1
+    blkio   6       247     1
+    perf_event      11      131     1
+    hugetlb 4       131     1
+    pids    9       45      1
+    net_prio        7       131     1
+	```
+	
+- 层级(hierarchy)
+	>可以理解为一棵cgroup树,树的每个节点(目录)就是一个进程组,每棵树都会与零到多个subsystem关联.
+	>
+	>规则1:同一个 hierarchy可以附加一个或多个subsystem.eg:hierarchy id 3,同时附加了cpu/cpuacct子系统.
+	>
+	>规则2:一个subsystem可以附加到多个hierarchy,当且仅当这些 hierarchy,只有这唯一一个 subsystem.
+	>
+	>规则3:系统每次新建一个hierarchy时,该系统上的所有task 默认构成了这个新建的hierarchy的初始化cgroup,这个cgroup 也称为root cgroup.对于你创建的每个 hierarchy,task只能存在于其中一个cgroup ,即一个task不能存在于同一个hierarchy的不同cgroup中,但是一个task可以存在在不同hierarchy中的多个cgroup中.
+	>
+	>规则4:进程(task)在 fork 自身时创建的子任务child task默认与原task在同一个cgroup中,但是child task允许被移动到不同的cgroup 中.即fork完成后,父子进程间是完全独立的。
 
-```
-$cat /proc/cgroup
-#subsys_name    hierarchy       num_cgroups     enabled
-cpuset  10      131     1
-cpu     5       250     1
-cpuacct 5       250     1
-memory  3       250     1
-devices 8       247     1
-freezer 2       131     1
-net_cls 7       131     1
-blkio   6       247     1
-perf_event      11      131     1
-hugetlb 4       131     1
-pids    9       45      1
-net_prio        7       131     1
-```
+- 控制组(controller group)
+	>查看进程的cgroup 
+	```
+	$ cat /proc/28791/cgroup 
+	11:freezer:/ 
+	10:memory:/user.slice
+	9:devices:/user.slice
+	8:net_cls,net_prio:/
+	7:blkio:/user.slice
+	6:cpuset:/
+	5:perf_event:/
+	4:pids:/user.slice
+	3:cpu,cpuacct:/test    # 此处为自定义的控制组
+	2:hugetlb:/
+	1:name=systemd:/user.slice/user-0.slice/session-714.scope
+	```
 
-2. subsys_name  子系统有12个  
-   
-- hierarchy 
->可以理解为一棵cgroup树,树的每个节点(目录)就是一个进程组,每棵树都会与零到多个subsystem关联.
->
->规则1:同一个 hierarchy可以附加一个或多个subsystem.eg:hierarchy id 3,同时附加了cpu/cpuacct子系统.
->
->规则2:一个subsystem可以附加到多个hierarchy,当且仅当这些 hierarchy,只有这唯一一个 subsystem.
->
->规则3:系统每次新建一个hierarchy时,该系统上的所有task 默认构成了这个新建的hierarchy的初始化cgroup,这个cgroup 也称为root cgroup.对于你创建的每个 hierarchy,task只能存在于其中一个cgroup ,即一个task不能存在于同一个hierarchy的不同cgroup中,但是一个task可以存在在不同hierarchy中的多个cgroup中.
->
->规则4:进程(task)在 fork 自身时创建的子任务child task默认与原task在同一个cgroup中,但是child task允许被移动到不同的cgroup 中.即fork完成后,父子进程间是完全独立的。
+- 任务(tasks) 
+	>子系统在该层级中关联到任务的个数
+	```
+	$ cat /sys/fs/cgroup/cpu/tast|wc -l
+	```
 
-3. num_cgroups 
->子系统在该层级中关联到的进程组的个数
+# 二.k8s中对cpu资源的限定
+**假设存在一个2c2g的pod,看系统是如何实现资源控制的**
 
-```
-$ cat /sys/fs/cgroup/cpu/tast|wc -l`
-```
+- 查看node可分配资源情况
+	```
+	Capacity:
+	 cpu:           32
+	 memory:        528071116Ki
+	 pods:          110
+	 storage:       297Gi
+	Allocatable:
+	 cpu:           28
+	 memory:        515385804Ki
+	 pods:          110
+	 storage:       297Gi
+	```
+	*宿主机32c,可分配给pod的资源只有28c.可能要问,4c去哪里了?查看宿主机kubelet启动参数,发现做了预留.2c留给kubelet进程本身.2c留给系统上其他进程.这种资源预留也是通过cgroup实现的.可以进一步看kubelet源码.`KUBELET_ARGS="--root-dir=/export/kubelet --kube-reserved=cpu=2,memory=4Gi --system-reserved=cpu=2,memory=8Gi....."`*
+	
 
-4. 查看进程的cgroup 
+- 查看目标pod资源限定参数
+	```
+	Limits:
+	  cpu:      2
+	  memory:   2Gi
+	Requests:
+	  cpu:      800m
+		memory:   2Gi	  
+	```
+	*发现其request.cpu=800m(m:千分之一核),limit.cpu=2,k8s中request.cpu的值会映射到cgroup中cpu.shares,limit.cpu映射到cpu.cfs_quota_us,其中cpu.cfs_period_us缺省设置为100ms;这种映射关系是通过docker的相关参数实现的*
 
-```
-$ cat /proc/28791/cgroup 
-11:freezer:/ 
-10:memory:/user.slice
-9:devices:/user.slice
-8:net_cls,net_prio:/
-7:blkio:/user.slice
-6:cpuset:/
-5:perf_event:/
-4:pids:/user.slice
-3:cpu,cpuacct:/test    # 此处为自定义的控制组
-2:hugetlb:/
-1:name=systemd:/user.slice/user-0.slice/session-714.scope
-```
+- 查看docker容器资源限定参数
+	```
+	"CpuShares": 819,
+	"CpuPeriod": 100000,
+	"CpuQuota": 200000, 
+	```
+	
+	*CpuShares=819是通过0.8x1024计算出来的;CpuPeriod缺省值为100ms,CpuQuota为200ms,表示可以使用2c的cpu资源*
 
+- 查看cgroup资源限定参数
+	```
+	#根据容器ID查询容器进程PID
+	docker inspect  --format '{{ .State.Pid }}' c30efb46bd87
+	346019
 
-# 2. k8s cpu的限定
+	#根据pid查看cgroup配置
+	cat /proc/346019/cgroup |grep cpuacct,cpu
+	9:cpuacct,cpu:/kubepods/burstable/podad31742b-cd93-11e9-9679-58f987da0bb0/c30efb46bd87237b8cc6a927ab6f7b526f6450247ac62f3863c25bdafc10632b
 
-## 2.1 假设存在一个2c2g的pod,看系统是如何实现资源控制的
+	# 此处为相对层级的路径,加上层级目录
+	cd /sys/fs/cgroup/cpu/kubepods/burstable/podad31742b-cd93-11e9-9679-58f987da0bb0/c30efb46bd87237b8cc6a927ab6f7b526f6450247ac62f3863c25bdafc10632b
 
-1. 查看node可分配资源情况
+	# 查看cgroup资源限定参数
+	cat tasks |grep 346019
+	346019
 
-```
-Capacity:
- cpu:           32
- memory:        528071116Ki
- pods:          110
- storage:       297Gi
-Allocatable:
- cpu:           28
- memory:        515385804Ki
- pods:          110
- storage:       297Gi
-```
+	cat cpu.cfs_quota_us
+	200000
 
-> 宿主机32c,可分配给pod的资源只有28c.可能要问,4c去哪里了?查看宿主机kubelet启动参数,发现做了预留.2c留给kubelet进程本身.2c留给系统上其他进程.这种资源预留也是通过cgroup实现的.可以进一步看kubelet源码.
+	cat cpu.cfs_period_us
+	100000
 
-2. kubelet部分启动参数
-
-```
-KUBELET_ARGS="--root-dir=/export/kubelet --kube-reserved=cpu=2,memory=4Gi --system-reserved=cpu=2,memory=8Gi...
-```
-
-3. 查看目标pod资源限定参数
-
-```
-    Limits:
-      cpu:      2
-      memory:   2Gi
-    Requests:
-      cpu:      800m
-      memory:   2Gi	  
-```
-
-> 发现其request.cpu=800m(m:千分之一核),limit.cpu=2,k8s中request.cpu的值会映射到cgroup中cpu.shares,limit.cpu映射到cpu.cfs_quota_us,其中cpu.cfs_period_us缺省设置为100ms;这种映射关系是通过docker的相关参数实现的
-
-4. 查看docker容器资源限定参数
-
-```
-   "CpuShares": 819,
-   "CpuPeriod": 100000,
-   "CpuQuota": 200000, 
-```
-> CpuShares=819是通过0.8*1024计算出来的;CpuPeriod缺省值为100ms,CpuQuota为200ms,表示可以使用2c的cpu资源
-
-5. 查看cgroup资源限定参数
-
-```
-#根据容器ID查询容器进程PID
-docker inspect  --format '{{ .State.Pid }}' c30efb46bd87
-346019
-
-#根据pid查看cgroup配置
-cat /proc/346019/cgroup |grep cpuacct,cpu
-9:cpuacct,cpu:/kubepods/burstable/podad31742b-cd93-11e9-9679-58f987da0bb0/c30efb46bd87237b8cc6a927ab6f7b526f6450247ac62f3863c25bdafc10632b
-
-# 此处为相对层级的路径,加上层级目录
-cd /sys/fs/cgroup/cpu/kubepods/burstable/podad31742b-cd93-11e9-9679-58f987da0bb0/c30efb46bd87237b8cc6a927ab6f7b526f6450247ac62f3863c25bdafc10632b
-
-# 查看cgroup资源限定参数
-cat tasks |grep 346019
-346019
-
-cat cpu.cfs_quota_us
-200000
-
-cat cpu.cfs_period_us
-100000
-
-cat cpu.shares
-1024
-```
+	cat cpu.shares
+	1024
+	```
 
 
 
