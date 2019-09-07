@@ -45,21 +45,6 @@ done;
 - 创建一个控制组控制这个进程的cpu资源
 ```
 mkdir -p /sys/fs/cgroup/cpu/test
-ll /sys/fs/cgroup/cpu/test
--rw-r--r-- 1 root root 0 Sep  6 04:57 cgroup.clone_children
--rw-r--r-- 1 root root 0 Sep  6 04:57 cgroup.procs
--r--r--r-- 1 root root 0 Sep  6 04:57 cpuacct.stat
--rw-r--r-- 1 root root 0 Sep  6 04:57 cpuacct.usage
--r--r--r-- 1 root root 0 Sep  6 04:57 cpuacct.usage_percpu
--rw-r--r-- 1 root root 0 Sep  6 04:57 cpu.cfs_period_us
--rw-r--r-- 1 root root 0 Sep  6 09:28 cpu.cfs_quota_us
--rw-r--r-- 1 root root 0 Sep  6 04:57 cpu.rt_period_us
--rw-r--r-- 1 root root 0 Sep  6 04:57 cpu.rt_runtime_us
--rw-r--r-- 1 root root 0 Sep  6 04:57 cpu.shares
--r--r--r-- 1 root root 0 Sep  6 04:57 cpu.stat
--rw-r--r-- 1 root root 0 Sep  6 04:57 notify_on_release
--rw-r--r-- 1 root root 0 Sep  6 09:28 tasks
-
 echo 50000 > /sys/fs/cgroup/cpu/test/cpu.cfs_quota_us
 echo 28536 > /sys/fs/cgroup/cpu/test/tasks
 
@@ -71,7 +56,7 @@ cat /sys/fs/cgroup/cpu/test/cpu.cfs_period_us
 
 - top再次查看cpu使用率49.8%
 ```                            
- 28536 root      20   0  114756   4488   2812 R  49.8  0.1   1:53.98 sh                                      
+28536 root      20   0  114756   4488   2812 R  49.8  0.1   1:53.98 sh                                      
 ```
 
 - cpu.stat
@@ -99,12 +84,10 @@ cat /sys/fs/cgroup/cpu/test/cpuacct.usage
 #### 相对的限制cpu使用资源 cpu.shares
 
 - cpu.shares
-
-shares用来设置CPU的相对值,并且是针对所有的CPU（内核）,默认值是1024,假如系统中有两个cgroup,分别是A和B,A的shares值是1024,B的shares值是512,那么A将获得1024/(1204+512)=66%的CPU资源,而B将获得33%的CPU资源。
+>shares用来设置CPU的相对值,并且是针对所有的CPU（内核）,默认值是1024,假如系统中有两个cgroup,分别是A和B,A的shares值是1024,B的shares值是512,那么A将获得1024/(1204+512)=66%的CPU资源,而B将获得33%的CPU资源。
 
 - shares有两个特点：
-
-如果A不忙,没有使用到66%的CPU时间,那么剩余的CPU时间将会被系统分配给B,即B的CPU使用率可以超过33%;如果添加了一个新的cgroup C,且它的shares值是1024,那么A的限额变成了1024/(1204+512+1024)=40%,B的变成了20%.
+>如果A不忙,没有使用到66%的CPU时间,那么剩余的CPU时间将会被系统分配给B,即B的CPU使用率可以超过33%;如果添加了一个新的cgroup C,且它的shares值是1024,那么A的限额变成了1024/(1204+512+1024)=40%,B的变成了20%.
 
 ```
 cat cpu.shares 
