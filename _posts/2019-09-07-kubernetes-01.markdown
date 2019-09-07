@@ -7,6 +7,7 @@ categories: kuberetes
 探究下k8s是如何实现对cpu的资源限定.先了解cgroup.
 
 ## 查看cgroup 挂载点
+
 ```
 #mount |grep cgroup
 tmpfs on /sys/fs/cgroup type tmpfs (ro,nosuid,nodev,noexec,mode=755)
@@ -30,6 +31,7 @@ cgroup on /sys/fs/cgroup/freezer type cgroup (rw,nosuid,nodev,noexec,relatime,fr
 
 
 - 跑一个耗cpu的脚本
+
 ```
 x=0
 while [ True ];do
@@ -38,11 +40,13 @@ done;
 ```
 
 - top可以查看cpu使用率99.8%,注意pid为`28536`
+
 ```                     
  28536 root      20   0  114756   4488   2812 R  99.8  0.1   1:53.98 sh                                     
 ```
 
 - 创建一个控制组控制这个进程的cpu资源
+
 ```
 mkdir -p /sys/fs/cgroup/cpu/test
 echo 50000 > /sys/fs/cgroup/cpu/test/cpu.cfs_quota_us
@@ -62,6 +66,7 @@ cat /sys/fs/cgroup/cpu/test/cpu.cfs_period_us
 ```
 
 - cpu.stat
+
 ```
 cat /sys/fs/cgroup/cpu/test/cpu.stat 
 nr_periods 106    # 经历了106个周期(cpu.cfs_period_us缺省为100ms)
@@ -71,6 +76,7 @@ throttled_time 4258985099 # 总共受限的cpu时间(纳秒)即约4.2s
 ```
 
 - cpuacct.stat
+
 ```
 getconf CLK_TCK
 100
@@ -78,8 +84,10 @@ cat /sys/fs/cgroup/cpu/test/cpuacct.stat
 user 543  # 单位是 USER_HZ,也就是 jiffies、cpu 滴答数,除以CLK_TCK可以算出用户态使用的时长为5.43s
 
 system 4  # 内核态使用的时长为0.04s
+
 ```
 - cpuacct.usage
+
 ```
 cat /sys/fs/cgroup/cpu/test/cpuacct.usage
 5058536787 #单位为纳秒,控制组中进程消耗的时间
@@ -118,7 +126,8 @@ net_prio       |8     |  1       |   1
 hugetlb        |2     |  1       |   1
 pids           |4     |  59      |   1
 
-- subsys_name  子系统 有12个
+- subsys_name  子系统有12个
+
 ```
 cpuset    
 cpu       
@@ -136,16 +145,21 @@ pids
 ```
 
 - hierarchy 可以理解为一棵cgroup树,树的每个节点(目录)就是一个进程组,每棵树都会与零到多个subsystem关联.
-	- 规则1:同一个 hierarchy可以附加一个或多个subsystem.eg:hierarchy id 3,同时附加了cpu/cpuacct子系统.
-	- 规则2:一个subsystem可以附加到多个hierarchy,当且仅当这些 hierarchy,只有这唯一一个 subsystem.
-	- 规则3:系统每次新建一个hierarchy时,该系统上的所有task 默认构成了这个新建的hierarchy的初始化cgroup,这个cgroup 也称为root cgroup.对于你创建的每个 hierarchy,task只能存在于其中一个cgroup ,即一个task不能存在于同一个hierarchy的不同cgroup中,但是一个task可以存在在不同hierarchy中的多个cgroup中.
-	- 规则4:进程(task)在 fork 自身时创建的子任务child task默认与原task在同一个cgroup中,但是child task允许被移动到不同的cgroup 中.即fork完成后,父子进程间是完全独立的。
+
+```
+规则1:同一个 hierarchy可以附加一个或多个subsystem.eg:hierarchy id 3,同时附加了cpu/cpuacct子系统.
+规则2:一个subsystem可以附加到多个hierarchy,当且仅当这些 hierarchy,只有这唯一一个 subsystem.
+规则3:系统每次新建一个hierarchy时,该系统上的所有task 默认构成了这个新建的hierarchy的初始化cgroup,这个cgroup 也称为root cgroup.对于你创建的每个 hierarchy,task只能存在于其中一个cgroup ,即一个task不能存在于同一个hierarchy的不同cgroup中,但是一个task可以存在在不同hierarchy中的多个cgroup中.
+规则4:进程(task)在 fork 自身时创建的子任务child task默认与原task在同一个cgroup中,但是child task允许被移动到不同的cgroup 中.即fork完成后,父子进程间是完全独立的。
+
+```
 
 - num_cgroups 子系统在该层级中关联到的进程组的个数`cat /sys/fs/cgroup/cpu/tast|wc -l`
 
 
 #### 查看进程的cgroup `cat /proc/<pid>/cgroup`
 > 显示格式为 hierarchy id:subsys_name:cgroup
+
 ```
 # cat /proc/28791/cgroup 
 11:freezer:/ 
@@ -168,6 +182,7 @@ pids
 ### 假设存在一个2c2g的pod,看系统是如何实现资源控制的
 
 - 查看node可分配资源情况
+
 ```
 Capacity:
  cpu:           32
@@ -181,15 +196,18 @@ Allocatable:
  storage:       297Gi
 
 ```
+
 > 宿主机32c,可分配给pod的资源只有28c.可能要问,4c去哪里了?查看宿主机kubelet启动参数,发现做了预留.2c留给kubelet进程本身.2c留给系统上其他进程.这种资源预留也是通过cgroup实现的.可以进一步看kubelet源码.
 
 - kubelet部分启动参数
+
 ```
 KUBELET_ARGS="--root-dir=/export/kubelet --kube-reserved=cpu=2,memory=4Gi --system-reserved=cpu=2,memory=8Gi...
 
 ```
 
 - 查看目标pod资源限定参数
+
 ```
     Limits:
       cpu:      2
@@ -199,18 +217,22 @@ KUBELET_ARGS="--root-dir=/export/kubelet --kube-reserved=cpu=2,memory=4Gi --syst
       memory:   2Gi
 	  
 ```
+
 > 发现其request.cpu=800m(m:千分之一核),limit.cpu=2,k8s中request.cpu的值会映射到cgroup中cpu.shares,limit.cpu映射到cpu.cfs_quota_us,其中cpu.cfs_period_us缺省设置为100ms;这种映射关系是通过docker的相关参数实现的
 
 - 查看docker容器资源限定参数
+
 ```
    "CpuShares": 819,
    "CpuPeriod": 100000,
    "CpuQuota": 200000,
    
 ```
+
 > CpuShares=819是通过0.8*1024计算出来的;CpuPeriod缺省值为100ms,CpuQuota为200ms,表示可以使用2c的cpu资源
 
 - 查看cgroup资源限定参数
+
 ```
 #根据容器ID查询容器进程PID
 docker inspect  --format '{{ .State.Pid }}' c30efb46bd87
