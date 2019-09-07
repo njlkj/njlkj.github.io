@@ -139,7 +139,7 @@ categories: kuberetes
 	 pods:          110
 	 storage:       297Gi
 	```
-	*宿主机32c,可分配给pod的资源只有28c.可能要问,4c去哪里了?查看宿主机kubelet启动参数,发现做了预留.2c留给kubelet进程本身.2c留给系统上其他进程.这种资源预留也是通过cgroup实现的.可以进一步看kubelet源码.`KUBELET_ARGS="--root-dir=/export/kubelet --kube-reserved=cpu=2,memory=4Gi --system-reserved=cpu=2,memory=8Gi....."`*
+	*宿主机32c,可分配给pod的资源只有28c.可能要问,4c去哪里了?宿主机通过kubelet启动参数`KUBELET_ARGS="--root-dir=/export/kubelet --kube-reserved=cpu=2,memory=4Gi --system-reserved=cpu=2,memory=8Gi....."`做了预留.2c留给kubelet进程本身.2c留给系统上其他进程.这种资源预留也是通过cgroup实现的.可以进一步看kubelet源码.*
 	
 
 - 查看目标pod资源限定参数
@@ -165,7 +165,7 @@ categories: kuberetes
 - 查看cgroup资源限定参数
 	```shell
 	#根据容器ID查询容器进程PID
-	$docker inspect  --format '{{.State.Pid}}' c30efb46bd87
+	$docker inspect  --format '{{ \.State.Pid }}' c30efb46bd87
 	346019
 
 	#根据pid查看cgroup配置
