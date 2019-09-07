@@ -163,27 +163,27 @@ categories: kuberetes
 - 查看cgroup资源限定参数
 	```
 	#根据容器ID查询容器进程PID
-	docker inspect  --format '{{ .State.Pid }}' c30efb46bd87
+	$docker inspect  --format '\{\{ .State.Pid \}\}' c30efb46bd87
 	346019
 
 	#根据pid查看cgroup配置
-	cat /proc/346019/cgroup |grep cpuacct,cpu
+	$cat /proc/346019/cgroup |grep cpuacct,cpu
 	9:cpuacct,cpu:/kubepods/burstable/podad31742b-cd93-11e9-9679-58f987da0bb0/c30efb46bd87237b8cc6a927ab6f7b526f6450247ac62f3863c25bdafc10632b
 
 	# 此处为相对层级的路径,加上层级目录
-	cd /sys/fs/cgroup/cpu/kubepods/burstable/podad31742b-cd93-11e9-9679-58f987da0bb0/c30efb46bd87237b8cc6a927ab6f7b526f6450247ac62f3863c25bdafc10632b
+	$cd /sys/fs/cgroup/cpu/kubepods/burstable/podad31742b-cd93-11e9-9679-58f987da0bb0/c30efb46bd87237b8cc6a927ab6f7b526f6450247ac62f3863c25bdafc10632b
 
 	# 查看cgroup资源限定参数
 	cat tasks |grep 346019
 	346019
 
-	cat cpu.cfs_quota_us
+	$cat cpu.cfs_quota_us
 	200000
 
-	cat cpu.cfs_period_us
+	$cat cpu.cfs_period_us
 	100000
 
-	cat cpu.shares
+	$cat cpu.shares
 	1024
 	```
 
