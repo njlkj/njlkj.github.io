@@ -163,7 +163,7 @@ categories: kuberetes
 - 查看cgroup资源限定参数
 	```
 	#根据容器ID查询容器进程PID
-	$docker inspect  --format '\{\{ .State.Pid \}\}' c30efb46bd87
+	$docker inspect  --format '{{ .State.Pid }}' c30efb46bd87
 	346019
 
 	#根据pid查看cgroup配置
@@ -176,15 +176,12 @@ categories: kuberetes
 	# 查看cgroup资源限定参数
 	cat tasks |grep 346019
 	346019
-
 	$cat cpu.cfs_quota_us
 	200000
-
 	$cat cpu.cfs_period_us
 	100000
-
 	$cat cpu.shares
-	1024
+	819
 	```
 
 
