@@ -44,8 +44,8 @@ done;
 
 - 创建一个控制组控制这个进程的cpu资源
 ```
-#mkdir -p /sys/fs/cgroup/cpu/test
-#ll /sys/fs/cgroup/cpu/test
+mkdir -p /sys/fs/cgroup/cpu/test
+ll /sys/fs/cgroup/cpu/test
 -rw-r--r-- 1 root root 0 Sep  6 04:57 cgroup.clone_children
 -rw-r--r-- 1 root root 0 Sep  6 04:57 cgroup.procs
 -r--r--r-- 1 root root 0 Sep  6 04:57 cpuacct.stat
@@ -60,12 +60,12 @@ done;
 -rw-r--r-- 1 root root 0 Sep  6 04:57 notify_on_release
 -rw-r--r-- 1 root root 0 Sep  6 09:28 tasks
 
-#echo 50000 > /sys/fs/cgroup/cpu/test/cpu.cfs_quota_us
-#echo 28536 > /sys/fs/cgroup/cpu/test/tasks
+echo 50000 > /sys/fs/cgroup/cpu/test/cpu.cfs_quota_us
+echo 28536 > /sys/fs/cgroup/cpu/test/tasks
 
-# cat /sys/fs/cgroup/cpu/test/cpu.cfs_quota_us
+cat /sys/fs/cgroup/cpu/test/cpu.cfs_quota_us
 50000
-# cat /sys/fs/cgroup/cpu/test/cpu.cfs_period_us
+cat /sys/fs/cgroup/cpu/test/cpu.cfs_period_us
 100000
 ```
 
@@ -76,7 +76,7 @@ done;
 
 - cpu.stat
 ```
-# cat /sys/fs/cgroup/cpu/test/cpu.stat 
+cat /sys/fs/cgroup/cpu/test/cpu.stat 
 nr_periods 106    # 经历了106个周期(cpu.cfs_period_us缺省为100ms)
 nr_throttled 101  # 其中101个周期受限制
 throttled_time 4258985099 # 总共受限的cpu时间(纳秒)即约4.2s
@@ -84,15 +84,15 @@ throttled_time 4258985099 # 总共受限的cpu时间(纳秒)即约4.2s
 
 - cpuacct.stat
 ```
-# getconf CLK_TCK
+getconf CLK_TCK
 100
-# cat /sys/fs/cgroup/cpu/test/cpuacct.stat
+cat /sys/fs/cgroup/cpu/test/cpuacct.stat
 user 543  # 单位是 USER_HZ,也就是 jiffies、cpu 滴答数,除以CLK_TCK可以算出用户态使用的时长为5.43s
 system 4  # 内核态使用的时长为0.04s
 ```
 - cpuacct.usage
 ```
-# cat /sys/fs/cgroup/cpu/test/cpuacct.usage
+cat /sys/fs/cgroup/cpu/test/cpuacct.usage
 5058536787 #单位为纳秒,控制组中进程消耗的时间
 ```
 
@@ -107,7 +107,7 @@ shares用来设置CPU的相对值,并且是针对所有的CPU（内核）,默认
 如果A不忙,没有使用到66%的CPU时间,那么剩余的CPU时间将会被系统分配给B,即B的CPU使用率可以超过33%;如果添加了一个新的cgroup C,且它的shares值是1024,那么A的限额变成了1024/(1204+512+1024)=40%,B的变成了20%.
 
 ```
-# cat cpu.shares 
+cat cpu.shares 
 1024     # 缺省值为1024
 ```
 
@@ -130,20 +130,20 @@ hugetlb        |2     |  1       |   1
 pids           |4     |  59      |   1
 
 - subsys_name  子系统 有12个
-	```
-	cpuset    
-	cpu       
-	cpuacct   
-	blkio     
-	memory    
-	devices   
-	freezer   
-	net_cls   
-	perf_event
-	net_prio  
-	hugetlb   
-	pids      
-	```
+```
+cpuset    
+cpu       
+cpuacct   
+blkio     
+memory    
+devices   
+freezer   
+net_cls   
+perf_event
+net_prio  
+hugetlb   
+pids      
+```
 
 - hierarchy 可以理解为一棵cgroup树,树的每个节点(目录)就是一个进程组,每棵树都会与零到多个subsystem关联.
 	- 规则1:同一个 hierarchy可以附加一个或多个subsystem.eg:hierarchy id 3,同时附加了cpu/cpuacct子系统.
@@ -244,14 +244,6 @@ cat cpu.shares
 
 ```
 
-> 和期望相符合
-
-## 参考文档
-
-https://www.jianshu.com/p/dc3140699e79
-
-
-https://www.infoq.cn/article/docker-kernel-knowledge-cgroups-resource-isolation
 
 
 
