@@ -43,7 +43,6 @@ done;
 ```
 
 - 创建一个控制组控制这个进程的cpu资源
-https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt
 ```
 #mkdir -p /sys/fs/cgroup/cpu/test
 #ll /sys/fs/cgroup/cpu/test
@@ -84,7 +83,6 @@ throttled_time 4258985099 # 总共受限的cpu时间(纳秒)即约4.2s
 ```
 
 - cpuacct.stat
-https://www.kernel.org/doc/Documentation/cgroup-v1/cpuacct.txt
 ```
 # getconf CLK_TCK
 100
@@ -93,7 +91,6 @@ user 543  # 单位是 USER_HZ,也就是 jiffies、cpu 滴答数,除以CLK_TCK可
 system 4  # 内核态使用的时长为0.04s
 ```
 - cpuacct.usage
-https://www.kernel.org/doc/Documentation/cgroup-v1/cpuacct.txt
 ```
 # cat /sys/fs/cgroup/cpu/test/cpuacct.usage
 5058536787 #单位为纳秒,控制组中进程消耗的时间
