@@ -165,7 +165,7 @@ categories: kuberetes
 - 查看cgroup资源限定参数
 	```shell
 	#根据容器ID查询容器进程PID
-	$docker inspect  --format '{{ \.State.Pid }}' c30efb46bd87
+	$docker inspect  --format '{{ \.State\.Pid }}' c30efb46bd87
 	346019
 
 	#根据pid查看cgroup配置
