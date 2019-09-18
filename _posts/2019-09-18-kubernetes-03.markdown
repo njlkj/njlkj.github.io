@@ -4,7 +4,7 @@ title:  "Kubernetes中数字证书的使用"
 date:   2019-09-18 16:43:00 +08
 categories: kuberetes
 ---
-探究下k8s是如何实现对cpu的资源限定.先了解cgroup.
+充分认识Kubernetes中数字证书的使用,做到知其然并知其所以然.
 
 # Kubernetes中数字证书的使用
 开始之前先补充一些背景知识.
