@@ -15,7 +15,7 @@ categories: kuberetes operator
 4. Kubernetes v1.11.3+ 
 5. kubectl version v1.11.3+
 
-## go
+## golang
 - 最近刚发布golang1.3,支持GOPROXY,解决了一些不可描述的问题,因此选择使用最新版本.
 	```shell
 	# 设置代理
@@ -44,7 +44,8 @@ categories: kuberetes operator
 	$ chmod +x operator-sdk-v0.10.0-x86_64-linux-gnu && cp operator-sdk-v0.10.0-x86_64-linux-gnu /usr/bin/operator-sdk
 	$ rm -rf operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
 	```
-## Demo
+
+## First Demo
 
 - 用一个自定义资源清单去启动Deployment和Service,如下:
 	```yaml
