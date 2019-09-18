@@ -53,16 +53,15 @@ PKI借助数字证书和公钥加密技术提供可信任的网络身份.通常,
 CFSSL是CloudFlare开源的一款PKI/TLS工具。 CFSSL 包含一个命令行工具 和一个用于 签名，验证并且捆绑TLS证书的 HTTP API 服务。 使用Go语言编写。
 
 ### 安装
-
-```shell
-wget https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
-wget https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
-wget https://pkg.cfssl.org/R1.2/cfssl-certinfo_linux-amd64
-chmod +x cfssl_linux-amd64 cfssljson_linux-amd64 cfssl-certinfo_linux-amd64
-mv cfssl_linux-amd64 /usr/local/bin/cfssl
-mv cfssljson_linux-amd64 /usr/local/bin/cfssljson
-mv cfssl-certinfo_linux-amd64 /usr/bin/cfssl-certinfo
-```
+	```shell
+	$ wget https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
+	$ wget https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+	$ wget https://pkg.cfssl.org/R1.2/cfssl-certinfo_linux-amd64
+	$ chmod +x cfssl_linux-amd64 cfssljson_linux-amd64 cfssl-certinfo_linux-amd64
+	$ mv cfssl_linux-amd64 /usr/local/bin/cfssl
+	$ mv cfssljson_linux-amd64 /usr/local/bin/cfssljson
+	$ mv cfssl-certinfo_linux-amd64 /usr/bin/cfssl-certinfo
+	```
 
 ### 创建认证中心(CA),也叫根证书
 CFSSL可以创建一个获取和操作证书的内部认证中心.运行认证中心需要一个CA证书(公钥)和相应的CA私钥.任何知道私钥的人都可以充当CA颁发证书.因此,私钥的保护至关重要.
