@@ -1,0 +1,258 @@
+---
+layout: post
+title:  "初次尝试operator"
+date:   2019-09-08 19:00:00 +08
+categories: kuberetes operator
+---
+实现 Kubernetes Operator poc.
+
+# Kubernetes Operator
+
+## 准备
+1. git
+2. go version v1.12+
+3. docker version 17.03+
+4. Kubernetes v1.11.3+ 
+5. kubectl version v1.11.3+
+
+## go
+- 最近刚发布golang1.3,支持GOPROXY,解决了一些不可描述的问题,因此选择使用最新版本.
+	```shell
+	# 设置代理
+	$ echo export GOPROXY=https://goproxy.io  >> /etc/profile 
+	# 下载二进制安装包并解压后(自行参考golang官网),设置GOROOT
+	$ echo export GOROOT=/opt/go >> /etc/profile 
+	# 使配置生效
+	$ source /etc/profile 
+	# 设置软连接(也可以设置PATH环境变量)
+	$ ln -s /opt/go/bin/go /usr/bin/go && ln -s /opt/go/bin/gofmt /usr/bin/gofmt
+	# 验证
+	$ go version
+	go version go1.13 linux/amd64
+	```
+## Operator SDK
+- CoreOS 开源的一个用于快速开发 Operator 的工具包.它的工作流程是:
+	1. 使用 SDK 创建一个新的 Operator 项目
+	2. 通过添加自定义资源（CRD）定义新的资源 API
+	3. 指定使用 SDK API 来 watch 的资源
+	4. 定义 Operator 的协调（reconcile）逻辑
+	5. 使用 Operator SDK 构建并生成 Operator 部署清单文件
+
+- install
+	```shell
+	$ wget  https://github.com/operator-framework/operator-sdk/releases/download/v0.10.0/operator-sdk-v0.10.0-x86_64-linux-gnu 
+	$ chmod +x operator-sdk-v0.10.0-x86_64-linux-gnu && cp operator-sdk-v0.10.0-x86_64-linux-gnu /usr/bin/operator-sdk
+	$ rm -rf operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+	```
+## Demo
+
+- 用一个自定义资源清单去启动Deployment和Service,如下:
+	```yaml
+	apiVersion: app.example.com/v1
+	kind: AppService
+	metadata:
+	  name: nginx-app
+	spec:
+	  size: 2
+	  image: nginx:1.7.9
+	  ports:
+		- port: 80
+		  targetPort: 80
+		  nodePort: 30002
+	```
+
+### 创建新项目
+
+- 创建 operator
+	```shell
+	# first-operator
+	$ operator-sdk new first-operator --repo=github.com/njlkj/first-operator
+	$ cd first-operator	
+	```
+	
+- 项目脚手架布局
+	```shell
+	$  tree 
+	.
+	├── build # operator的Dockerfile和构建脚本.
+	│   ├── bin
+	│   │   ├── entrypoint
+	│   │   └── user_setup
+	│   └── Dockerfile
+	├── cmd # operator的入口,注册 pkg/apis/...目录下的所有CRD,并启动 pkg/controllers/...目录下的所有控制器.
+	│   └── manager
+	│       └── main.go 
+	├── deploy 
+	│   ├── operator.yaml # Deployment
+	│   ├── role_binding.yaml # RBAC role_binding
+	│   ├── role.yaml # RBAC role
+	│   └── service_account.yaml # service_account
+	├── go.mod # 依赖
+	├── go.sum 
+	├── pkg
+	│   ├── apis # 包含自定义资源(CRD)的API定义.用户可以修改 pkg/apis/<group>/<version>/<kind>_types.go 定制资源的API定义.
+	│   │   └── apis.go 
+	│   └── controller # 包含 controller 的实现.用户可以修改 pkg/controller/<kind>/<kind>_controller.go 定制控制器业务逻辑以处理自定义资源(CR).
+	│       └── controller.go
+	├── tools.go
+	└── version
+		└── version.go
+		
+	9 directories, 14 files
+	```
+
+### 创建 CRD
+
+- 创建 CRDs
+	```shell
+	$ operator-sdk add api --api-version=app.example.com/v1alpha1 --kind=AppService
+	```
+	
+- 创建 CRD 后的项目布局
+	```shell
+	$ tree
+	.
+	├── build
+	│   ├── bin
+	│   │   ├── entrypoint
+	│   │   └── user_setup
+	│   └── Dockerfile
+	├── cmd
+	│   └── manager
+	│       └── main.go
+	├── deploy
+	│   ├── crds
+	│   │   ├── app_v1alpha1_appservice_crd.yaml
+	│   │   └── app_v1alpha1_appservice_cr.yaml
+	│   ├── operator.yaml
+	│   ├── role_binding.yaml
+	│   ├── role.yaml
+	│   └── service_account.yaml
+	├── go.mod
+	├── go.sum
+	├── pkg
+	│   ├── apis
+	│   │   ├── addtoscheme_app_v1alpha1.go
+	│   │   ├── apis.go
+	│   │   └── app
+	│   │       ├── group.go
+	│   │       └── v1alpha1
+	│   │           ├── appservice_types.go
+	│   │           ├── doc.go
+	│   │           ├── register.go
+	│   │           ├── zz_generated.deepcopy.go
+	│   │           └── zz_generated.openapi.go
+	│   └── controller
+	│       └── controller.go
+	├── tools.go
+	└── version
+		└── version.go
+
+	12 directories, 23 files
+	```
+	> 多出了 app_v1alpha1_appservice_crd.yaml/app_v1alpha1_appservice_cr.yaml 文件和 pkg/apis/...CRD api定义文件.
+
+- 定制 appservice_types.go
+	```golang
+	package v1alpha1
+
+	import (
+			metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+			appsv1 "k8s.io/api/apps/v1"
+			corev1 "k8s.io/api/core/v1"
+			appv1 "github.com/cnych/opdemo/pkg/apis/app/v1"
+	)
+	type AppServiceSpec struct {
+			Size      *int32                      `json:"size"`
+			Image     string                      `json:"image"`
+			Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+			Envs      []corev1.EnvVar             `json:"envs,omitempty"`
+			Ports     []corev1.ServicePort        `json:"ports,omitempty"`
+	}
+
+	type AppServiceStatus struct {
+			appsv1.DeploymentStatus `json:",inline"`
+	}
+	# ......(省略)
+	```
+- 修改后一定要执行重新生成代码
+	```shell
+	$ operator-sdk generate k8s
+	```
+
+### 创建 controller
+
+- 创建 controller
+	```shell
+	$ operator-sdk add controller --api-version=app.example.com/v1alpha1 --kind=AppService
+	```
+	> 创建完之后多出一个文件 appservice_controller.go , 在 Reconcile 方法中自定义业务逻辑.
+	
+- 定制 appservice_controller.go
+	```golang
+	
+	```
+
+### 调试
+
+未完 待续
+
+### 部署
+
+未完 待续
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
