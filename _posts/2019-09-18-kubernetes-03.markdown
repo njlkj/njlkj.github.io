@@ -53,6 +53,7 @@ PKI借助数字证书和公钥加密技术提供可信任的网络身份.通常,
 CFSSL是CloudFlare开源的一款PKI/TLS工具。 CFSSL 包含一个命令行工具 和一个用于 签名，验证并且捆绑TLS证书的 HTTP API 服务。 使用Go语言编写。
 
 ### 安装
+
 ```shell
 wget https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
 wget https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
@@ -67,6 +68,7 @@ mv cfssl-certinfo_linux-amd64 /usr/bin/cfssl-certinfo
 CFSSL可以创建一个获取和操作证书的内部认证中心.运行认证中心需要一个CA证书(公钥)和相应的CA私钥.任何知道私钥的人都可以充当CA颁发证书.因此,私钥的保护至关重要.
 
 - 配置证书生成策略
+
 ```shell
 # 生成配置证书生成策略
 $ cfssl print-defaults config > ca-config.json
@@ -102,6 +104,7 @@ $ vi ca-config.json
 ```	
 
 - 生成CSR明文文件
+
 ```shell
 $ cfssl print-defaults csr > ca-csr.json
 # 修改后的
@@ -126,6 +129,7 @@ $ vi ca-csr.json
 ```
 
 - 生成CA证书和私钥
+
 ```shell
 $ cfssl gencert -initca ca-csr.json | cfssljson -bare ca
 2019/09/09 13:45:11 [INFO] generating a new CA key and certificate from CSR
@@ -157,6 +161,7 @@ KUBECONFIG=<filename> kubectl config use-context default-system
 ```
 
 - 生成CSR明文文件
+
 ```shell
 $ cfssl print-defaults csr > k8s-csr.json
 # 修改后的
@@ -194,6 +199,7 @@ $ vi k8s-csr.json
 ```
 	
 - 生成证书和私钥
+
 ```shell
 # -ca,指定ca认证中心证书
 # -ca-key,指定ca认证中心私钥
@@ -216,6 +222,7 @@ $ ls -l |grep k8s |grep -v json
 ```
 
 - 生成kube-controller-manager使用证书
+
 ```shell	
 $ cat > /etc/ssl/kube-controller-manager-csr.json << EOF
 {
@@ -240,6 +247,7 @@ $ cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=ku
 ```
 
 - 生成kube-controller-manager.kubeconfig
+
 ```shell
 kubectl config --kubeconfig=kube-controller-manager.kubeconfig set-cluster kubernetes --certificate-authority=/etc/ssl/k8s/ca.pem --embed-certs=true --server=https://192.168.202.126:6443 
 kubectl config --kubeconfig=kube-controller-manager.kubeconfig set-credentials kube-controller-manager --client-certificate=/etc/ssl/k8s/kube-controller-manager.pem --client-key=/etc/ssl/k8s/kube-controller-manager-key.pem --embed-certs=true 
@@ -250,6 +258,7 @@ kubectl config --kubeconfig=kube-controller-manager.kubeconfig use-context kube-
 	
 
 - 生成kube-scheduler请求证书文件
+
 ```shell	
 $ cat > /etc/ssl/k8s/kube-scheduler-csr.json << EOF
 {
@@ -274,6 +283,7 @@ $ cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=ku
 ```
 
 - 生成kube-scheduler.kubeconfig
+
 ```shell
 kubectl config --kubeconfig=kube-scheduler.kubeconfig set-cluster kubernetes --certificate-authority=/etc/ssl/k8s/ca.pem --embed-certs=true --server=https://192.168.202.126:6443 
 kubectl config --kubeconfig=kube-scheduler.kubeconfig set-credentials kube-scheduler --client-certificate=/etc/ssl/k8s/kube-scheduler.pem --client-key=/etc/ssl/k8s/kube-scheduler-key.pem --embed-certs=true 
@@ -283,6 +293,7 @@ kubectl config --kubeconfig=kube-scheduler.kubeconfig use-context kube-scheduler
 ```
 
 - 生成kube-node请求证书文件(每个都需要定制)
+
 ```shell	
 $ cat > /etc/ssl/k8s/kube-node202127-csr.json << EOF
 {
@@ -307,6 +318,7 @@ $ cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=ku
 ```
 
 - 生成kube-node.kubeconfig
+
 ```shell
 kubectl config --kubeconfig=kubelet202127.kubeconfig set-cluster kubernetes --certificate-authority=/etc/ssl/k8s/ca.pem --embed-certs=true --server=https://192.168.202.126:6443 
 kubectl config --kubeconfig=kubelet202127.kubeconfig set-credentials kubelet --client-certificate=/etc/ssl/k8s/kube-node202127.pem --client-key=/etc/ssl/k8s/kube-node202127-key.pem --embed-certs=true 
@@ -314,10 +326,12 @@ kubectl config --kubeconfig=kubelet202127.kubeconfig set-context kubelet --clust
 kubectl config --kubeconfig=kubelet202127.kubeconfig use-context kubelet
 
 ```
+
 > 每个主机生成不一样的证书,主要区别在于 CN 和 O,对应k8s中用户和组.
 
 
 - 生成 kube-proxy 请求证书文件
+
 ```shell	
 $ cat > /etc/ssl/k8s/kube-proxy-csr.json << EOF
 {
@@ -341,6 +355,7 @@ $ cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=ku
 ```
 
 - 生成kube-proxy.kubeconfig
+
 ```shell
 kubectl config --kubeconfig=kube-proxy.kubeconfig set-cluster kubernetes --certificate-authority=/etc/ssl/k8s/ca.pem --embed-certs=true --server=https://192.168.202.126:6443 
 kubectl config --kubeconfig=kube-proxy.kubeconfig set-credentials kube-proxy --client-certificate=/etc/ssl/k8s/kube-proxy.pem --client-key=/etc/ssl/k8s/kube-proxy-key.pem --embed-certs=true 
@@ -350,6 +365,7 @@ kubectl config --kubeconfig=kube-proxy.kubeconfig use-context kube-proxy
 ```
 
 - 生成 kube-admin-csr.json
+
 ```shell	
 $ cat > /etc/ssl/k8s/kube-admin-csr.json << EOF
 {
@@ -373,6 +389,7 @@ $ cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=ku
 ```
 
 - 生成kube-admin.kubeconfig
+
 ```shell
 kubectl config --kubeconfig=kube-admin.kubeconfig set-cluster kubernetes --certificate-authority=/etc/ssl/k8s/ca.pem --embed-certs=true --server=https://192.168.202.126:6443 
 kubectl config --kubeconfig=kube-admin.kubeconfig set-credentials kube-admin --client-certificate=/etc/ssl/k8s/kube-admin.pem --client-key=/etc/ssl/k8s/kube-admin-key.pem --embed-certs=true 
@@ -385,6 +402,7 @@ kubectl config --kubeconfig=kube-admin.kubeconfig use-context kube-admin
 ### Kubernetes使用证书和私钥
 
 - kube-apiserver.service
+
 ```shell
 $ cat > /usr/lib/systemd/system/kube-apiserver.service << EOF
 [Unit]
@@ -410,6 +428,7 @@ EOF
 ```
 
 - kube-controller-manager.service
+
 ```shell
 $ cat > /usr/lib/systemd/system/kube-controller-manager.service << EOF
 [Unit]
@@ -429,6 +448,7 @@ EOF
 ```
 
 - kube-scheduler.service
+
 ```shell
 cat > /usr/lib/systemd/system/kube-scheduler.service << EOF
 
@@ -448,7 +468,8 @@ EOF
 
 ```
 
-- kubelet.service 
+- kubelet.service
+
 ```shell
 cat > /usr/lib/systemd/system/kubelet.service << EOF
 [Unit]
@@ -470,7 +491,8 @@ EOF
 
 ```
 
-- kube-proxy.service 
+- kube-proxy.service
+
 ```shell
 cat > /usr/lib/systemd/system/kube-proxy.service << EOF
 [Unit]
